@@ -46,4 +46,4 @@ pinout:
   uio[6]: "OUT_E"
   uio[7]: "OUT_F"
 
-  yaml version: 6
+  yaml_version: 6
