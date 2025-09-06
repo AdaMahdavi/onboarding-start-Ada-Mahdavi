@@ -2,7 +2,13 @@
 info.yaml  
 title: "ASIC Onboarding Project - Ada Mahdavi"  
 author: "Ada Mahdavi"  
-description: "SPI-controlled PWM peripheral for Tiny Tapeout."  
+discord : "ayuyu_wrd"
+description: "SPI-controlled PWM peripheral for Tiny Tapeout." 
+language: "verilog"
+clock_hz: 0
+
+tiles: "1x1"
+
 top_module: "tt_um_uwasic_onboarding_Ada_Mahdavi"  
 source_files:  
   - spi_peripheral.v
@@ -40,3 +46,5 @@ pinout:
   uio[5]: "OUT_D"
   uio[6]: "OUT_E"
   uio[7]: "OUT_F"
+
+  yaml version: 6
