@@ -1,4 +1,6 @@
  
+  yaml_version: 6
+
 title: "ASIC Onboarding Project - Ada Mahdavi"  
 author: "Ada Mahdavi"  
 discord : "ayuyu_wrd"
@@ -46,4 +48,3 @@ pinout:
   uio[6]: "OUT_E"
   uio[7]: "OUT_F"
 
-  yaml_version: 6
