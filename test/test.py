@@ -3,9 +3,9 @@
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, ClockCycles
+from cocotb.triggers import RisingEdge, ClockCycles, with_timeout, FallingEdge
 from cocotb.types import Logic, LogicArray
-from cocotb.result import TestFailure
+from cocotb.result import TestFailure, SimTimeoutError
 from cocotb.utils import get_sim_time
 async def await_half_sclk(dut):
     """Wait for the SCLK signal to go high or low."""
@@ -191,8 +191,8 @@ async def test_pwm_freq(dut):
     await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 5)   
-    dut._log.info("Testing PWM Frequency")
-    
+    dut._log.info("Initiating PWM Frequency test")
+
     await send_spi_transaction(dut, 1, 0x00, 0x01) #enable output
     await send_spi_transaction(dut, 1, 0x02, 0x01) #enable PWM
     await send_spi_transaction(dut, 1, 0x04, 0xCF) #assigning duty cycle (anything but 0 and 0xFF)
@@ -212,5 +212,67 @@ async def test_pwm_freq(dut):
 
 @cocotb.test()
 async def test_pwm_duty(dut):
-    # Write your test here
+
+    clock = Clock(dut.clk, 100, units="ns")
+    cocotb.start_soon(clock.start())
+    
+    dut._log.info("Reset")
+    dut.ena.value = 1
+    dut._log.info("Reset")
+    nCS = 1
+    bit = 0
+    SCLK = 0
+    dut.ui_in.value = ui_in_logicarray(nCS, bit, SCLK)
+    dut.rst_n.value = 0
+
+    await ClockCycles(dut.clk, 5)
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 5)
+
+    dut._log.info("Initiating PWM Duty Cycle test")
+
+    await send_spi_transaction(dut, 1, 0x00, 0x01) #enable output
+    await send_spi_transaction(dut, 1, 0x02, 0x01) #enable PWM
+
+    await send_spi_transaction(dut, 1, 0x04, 0x80) #assigning duty cycle (50%)
+    await ClockCycles(dut.clk, 7000)
+
+    risingEdge1 = await edgeDetection(dut, 0, 1)
+    fallingEdge = await edgeDetection(dut, 1, 0)
+    risingEdge2 = await edgeDetection(dut, 0, 1)
+
+
+    highTime = fallingEdge - risingEdge1
+    period = risingEdge2 - risingEdge1
+    DutyCycle = (highTime * 100) / period
+
+    dut._log.info(f"Measured Duty Cycle: {DutyCycle} %")
+    assert 49 <= DutyCycle <= 51, f"Duty Cycle out of range!"
+
+    timeOut = int(period * 2) if period > 0 else 700_000
+    async def noEdge(state, timeOut, label):
+        try:
+            await with_timeout(state, timeout_time=timeOut, timeout_unit="ns")
+            raise TestFailure(f"{label}: unexpected edge observed")
+        except SimTimeoutError:
+            pass 
+
+    # assigning duty cycle (0%)
+    await send_spi_transaction(dut, 1, 0x04, 0x00)
+    await ClockCycles(dut.clk, 2000)
+    start = _bit0(dut.uo_out)
+    assert start == 0, f"0%: output not low at start (got {start})"
+    await noEdge(RisingEdge(dut.uo_out[0]), timeOut, "(0%) duty")
+    
+    dut._log.info("Duty Cycle 0% test passed!")
+
+    # assigning duty cycle (100%)
+    await send_spi_transaction(dut, 1, 0x04, 0xFF)
+    await ClockCycles(dut.clk, 2000)
+    start = _bit0(dut.uo_out)
+    assert start == 1, f"100%: output not high at start (got {start})"
+    await noEdge(FallingEdge(dut.uo_out[0]), timeOut, "(100%) duty")
+    dut._log.info("Duty Cycle 100% test passed!")
+
+
     dut._log.info("PWM Duty Cycle test completed successfully")
