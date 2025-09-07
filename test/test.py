@@ -3,11 +3,10 @@
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge
-from cocotb.triggers import ClockCycles
-from cocotb.types import Logic
-from cocotb.types import LogicArray
-
+from cocotb.triggers import RisingEdge, ClockCycles
+from cocotb.types import Logic, LogicArray
+from cocotb.result import TestFailure
+from cocotb.utils import get_sim_time
 async def await_half_sclk(dut):
     """Wait for the SCLK signal to go high or low."""
     start_time = cocotb.utils.get_sim_time(units="ns")
@@ -18,9 +17,9 @@ async def await_half_sclk(dut):
             break
     return
 
-def ui_in_logicarray(ncs, bit, sclk):
+def ui_in_logicarray(nCS, bit, SCLK):
     """Setup the ui_in value as a LogicArray."""
-    return LogicArray(f"00000{ncs}{bit}{sclk}")
+    return LogicArray(f"00000{nCS}{bit}{SCLK}")
 
 async def send_spi_transaction(dut, r_w, address, data):
     """
@@ -47,41 +46,41 @@ async def send_spi_transaction(dut, r_w, address, data):
     # Combine RW and address into first byte
     first_byte = (int(r_w) << 7) | address
     # Start transaction - pull CS low
-    sclk = 0
-    ncs = 0
+    SCLK = 0
+    nCS = 0
     bit = 0
     # Set initial state with CS low
-    dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+    dut.ui_in.value = ui_in_logicarray(nCS, bit, SCLK)
     await ClockCycles(dut.clk, 1)
     # Send first byte (RW + Address)
     for i in range(8):
         bit = (first_byte >> (7-i)) & 0x1
         # SCLK low, set COPI
-        sclk = 0
-        dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+        SCLK = 0
+        dut.ui_in.value = ui_in_logicarray(nCS, bit, SCLK)
         await await_half_sclk(dut)
         # SCLK high, keep COPI
-        sclk = 1
-        dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+        SCLK = 1
+        dut.ui_in.value = ui_in_logicarray(nCS, bit, SCLK)
         await await_half_sclk(dut)
     # Send second byte (Data)
     for i in range(8):
         bit = (data_int >> (7-i)) & 0x1
         # SCLK low, set COPI
-        sclk = 0
-        dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+        SCLK = 0
+        dut.ui_in.value = ui_in_logicarray(nCS, bit, SCLK)
         await await_half_sclk(dut)
         # SCLK high, keep COPI
-        sclk = 1
-        dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+        SCLK = 1
+        dut.ui_in.value = ui_in_logicarray(nCS, bit, SCLK)
         await await_half_sclk(dut)
     # End transaction - return CS high
-    sclk = 0
-    ncs = 1
+    SCLK = 0
+    nCS = 1
     bit = 0
-    dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+    dut.ui_in.value = ui_in_logicarray(nCS, bit, SCLK)
     await ClockCycles(dut.clk, 600)
-    return ui_in_logicarray(ncs, bit, sclk)
+    return ui_in_logicarray(nCS, bit, SCLK)
 
 @cocotb.test()
 async def test_spi(dut):
@@ -94,10 +93,10 @@ async def test_spi(dut):
     # Reset
     dut._log.info("Reset")
     dut.ena.value = 1
-    ncs = 1
+    nCS = 1
     bit = 0
-    sclk = 0
-    dut.ui_in.value = ui_in_logicarray(ncs, bit, sclk)
+    SCLK = 0
+    dut.ui_in.value = ui_in_logicarray(nCS, bit, SCLK)
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
@@ -148,10 +147,66 @@ async def test_spi(dut):
     await ClockCycles(dut.clk, 30000)
 
     dut._log.info("SPI test completed successfully")
+  
+def _bit0(signal):
+    v = signal.value
+    if not v.is_resolvable:
+        return None
+    return int(v) & 1
+
+async def edgeDetection(dut, lastLevel, targetLevel, maxCycles=5000):
+    if lastLevel not in (0, 1) or targetLevel not in (0, 1) or lastLevel == targetLevel:
+        raise ValueError("Specify distinct 0/1 levels for an edge")
+
+
+    last = _bit0(dut.uo_out)
+    while last != lastLevel:
+        await RisingEdge(dut.clk)
+        last = _bit0(dut.uo_out)
+
+    
+    for _ in range(maxCycles):
+        await RisingEdge(dut.clk)
+        current = _bit0(dut.uo_out)
+        if current == targetLevel and last == lastLevel:
+            return get_sim_time(units="ns")
+        last = current
+    raise TestFailure("Timeout waiting for edge")
 
 @cocotb.test()
 async def test_pwm_freq(dut):
-    # Write your test here
+    
+    clock = Clock(dut.clk, 100, units="ns")
+    cocotb.start_soon(clock.start())
+
+    #initializing values
+    dut._log.info("Reset")
+    dut.ena.value = 1
+    nCS = 1
+    bit = 0
+    SCLK = 0
+    dut.ui_in.value = ui_in_logicarray(nCS, bit, SCLK)
+    dut.rst_n.value = 0
+
+    await ClockCycles(dut.clk, 5)
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 5)   
+    dut._log.info("Testing PWM Frequency")
+    
+    await send_spi_transaction(dut, 1, 0x00, 0x01) #enable output
+    await send_spi_transaction(dut, 1, 0x02, 0x01) #enable PWM
+    await send_spi_transaction(dut, 1, 0x04, 0xCF) #assigning duty cycle (anything but 0 and 0xFF)
+
+    await ClockCycles(dut.clk, 5000)
+
+    RisingEdge1 = await edgeDetection(dut, 0, 1)
+    RisingEdge2 = await edgeDetection(dut, 0, 1)
+
+    period = RisingEdge2 - RisingEdge1
+    frequency = 1e9 / period  # Convert period in ns to frequency in Hz 
+
+    dut._log.info(f"Measured Frequency: {frequency} Hz")
+    assert frequency >= 2970 and frequency <= 3030, f"Frequency out of range!"
     dut._log.info("PWM Frequency test completed successfully")
 
 
