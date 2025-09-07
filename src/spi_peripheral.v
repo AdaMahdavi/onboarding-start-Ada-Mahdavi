@@ -61,8 +61,8 @@ always @(posedge clk or negedge rst_n) begin
             end 
         end
 
-        else if ((clkCount == 5'd16) && (!nCS_sync[1] & !nCS_sync[0]) && transaction[15]) begin  //+checking write_only bit in a go ~!
-            case (transaction[14:8]) //address casing
+        else if ((clkCount == 5'd16) && (!nCS_sync[1] & !nCS_sync[0]) && serialData[15]) begin  //+checking write_only bit in a go ~!
+            case (serialData[14:8]) //address casing
                 7'h00: begin 
                     en_reg_out_7_0 <= serialData[7:0]; 
                 end
