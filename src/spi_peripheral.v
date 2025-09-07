@@ -26,8 +26,8 @@ reg [3:0] clkCount;
 
 //k change of plans
 //process flags
-reg dataRead = 1'b1;
-reg dataReady = 1'b0;
+reg dataRead;
+reg dataReady;
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin //reset at active low
@@ -45,8 +45,8 @@ always @(posedge clk or negedge rst_n) begin
         serialData <= 16'b0;
         clkCount <= 5'b0;
 
-        dataRead = 1'b1;
-        dataReady = 1'b0;
+        dataRead <= 1'b1;
+        dataReady <= 1'b0;
     end 
     
     else begin
@@ -59,16 +59,16 @@ always @(posedge clk or negedge rst_n) begin
         //active low nCS, receiving serial data
 
         if (nCS_sync[1] & !nCS_sync[0] & dataRead) begin 
-            dataRead = 1'b0;
-            dataReady = 1'b1;
+            dataRead <= 1'b0;
+            dataReady <= 1'b1;
         end 
         // if (nCS_sync[1] & !nCS_sync[0]) begin 
         //     serialData <= 16'b0; 
         //     clkCount <= 5'b0;
         // end 
         else if (!nCS_sync[1] & nCS_sync[0] & !dataReady & (clkCount == 4'd15)) begin 
-            dataRead = 1'b1;
-            dataReady = 1'b0;
+            dataRead <= 1'b1;
+            dataReady <= 1'b0;
             clkCount <= 4'b0;
             serialData <= 16'b0;
         end
