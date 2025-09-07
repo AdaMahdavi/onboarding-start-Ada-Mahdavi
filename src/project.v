@@ -32,9 +32,9 @@ module tt_um_uwasic_onboarding_Ada_Mahdavi(
     .en_reg_pwm_7_0(en_reg_pwm_7_0),
     .en_reg_pwm_15_8(en_reg_pwm_15_8),
     .pwm_duty_cycle(pwm_duty_cycle),
-    .out({uio_out})
+    .out({uio_out, uo_out})
   );
-  assign uo_out = en_reg_out_7_0;
+  // assign uo_out = en_reg_out_7_0;
   spi_peripheral spi_peripheral_inst (
     .clk(clk),
     .rst_n(rst_n),
