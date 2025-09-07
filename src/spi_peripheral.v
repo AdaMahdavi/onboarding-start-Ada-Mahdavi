@@ -22,7 +22,12 @@ reg [1:0] COPI_sync;
 
 
 reg [15:0] serialData;
-reg [4:0] clkCount;
+reg [3:0] clkCount;
+
+//k change of plans
+//process flags
+reg dataRead = 1'b1;
+reg dataReady = 1'b0;
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin //reset at active low
@@ -39,6 +44,9 @@ always @(posedge clk or negedge rst_n) begin
 
         serialData <= 16'b0;
         clkCount <= 5'b0;
+
+        dataReading = 1'b1;
+        dataReady = 1'b0;
     end 
     
     else begin
@@ -49,19 +57,30 @@ always @(posedge clk or negedge rst_n) begin
         COPI_sync <= {COPI_sync[0], COPI};
         
         //active low nCS, receiving serial data
-        if (nCS_sync[1] & !nCS_sync[0]) begin 
-            serialData <= 16'b0; 
-            clkCount <= 5'b0;
-        end 
-        else if ((!nCS_sync[1] & nCS_sync[0]) && (SCLK_sync[1] & !SCLK_sync[0])) begin
-            if (clkCount < 5'd16) begin
 
+        if (nCS_sync[1] & !nCS_sync[0] & dataRead) begin 
+            dataReading = 1'b0;
+            dataReady = 1'b1;
+        end 
+        // if (nCS_sync[1] & !nCS_sync[0]) begin 
+        //     serialData <= 16'b0; 
+        //     clkCount <= 5'b0;
+        // end 
+        else if (!nCS_sync[1] & nCS_sync[0] & !dataReady & (clkCount == 4'd15)) begin 
+            dataRead = 1'b1;
+            dataReady = 1'b0;
+            clkCount <= 4'b0;
+            serialData <= 16'b0;
+        end
+        
+        if (dataReady) begin
+         (SCLK_sync[1] & !SCLK_sync[0]) begin
                 serialData <= {serialData[14:0], COPI_sync[1]};
                 clkCount <= clkCount + 1'b1;
             end 
         end
 
-        else if ((clkCount == 5'd16) && (!nCS_sync[1] & !nCS_sync[0]) && serialData[15]) begin  //+checking write_only bit in a go ~!
+        else if (dataRead & serialData[15]) begin  //+checking write_only bit in a go ~!
             case (serialData[14:8]) //address casing
                 7'h00: begin 
                     en_reg_out_7_0 <= serialData[7:0]; 
