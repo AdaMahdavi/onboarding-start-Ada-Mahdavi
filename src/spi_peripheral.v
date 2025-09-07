@@ -45,7 +45,7 @@ always @(posedge clk or negedge rst_n) begin
         serialData <= 16'b0;
         clkCount <= 5'b0;
 
-        dataReading = 1'b1;
+        dataRead = 1'b1;
         dataReady = 1'b0;
     end 
     
@@ -59,7 +59,7 @@ always @(posedge clk or negedge rst_n) begin
         //active low nCS, receiving serial data
 
         if (nCS_sync[1] & !nCS_sync[0] & dataRead) begin 
-            dataReading = 1'b0;
+            dataRead = 1'b0;
             dataReady = 1'b1;
         end 
         // if (nCS_sync[1] & !nCS_sync[0]) begin 
