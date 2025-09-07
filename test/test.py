@@ -250,28 +250,44 @@ async def test_pwm_duty(dut):
     assert 49 <= DutyCycle <= 51, f"Duty Cycle out of range!"
 
     timeOut = int(period * 2) if period > 0 else 700_000
-    async def noEdge(state, timeOut, label):
-        try:
-            await with_timeout(state, timeout_time=timeOut, timeout_unit="ns")
-            raise TestFailure(f"{label}: unexpected edge observed")
-        except SimTimeoutError:
-            pass 
+    # async def noEdge(state, timeOut, label):
+    #     try:
+    #         await with_timeout(state, timeout_time=timeOut, timeout_unit="ns")
+    #         raise TestFailure(f"{label}: unexpected edge observed")
+    #     except SimTimeoutError:
+    #         pass 
+
+
 
     # assigning duty cycle (0%)
     await send_spi_transaction(dut, 1, 0x04, 0x00)
     await ClockCycles(dut.clk, 2000)
-    start = _bit0(dut.uo_out)
-    assert start == 0, f"0%: output not low at start (got {start})"
-    await noEdge(RisingEdge(dut.uo_out[0]), timeOut, "(0%) duty")
-    
+
+    # start = _bit0(dut.uo_out)
+    # assert start == 0, f"0%: output not low at start (got {start})"
+    # await noEdge(RisingEdge(dut.uo_out[0]), timeOut, "(0%) duty")
+
+    assert _bit0(dut.uo_out) == 0, "(0%): output not low at start"
+    for _ in range(70000):  # Choose num_checks such that it covers your timeout
+        await ClockCycles(dut.clk, 1)
+        assert _bit0(dut.uo_out) == 0, "(0%) duty: output changed unexpectedly"
     dut._log.info("Duty Cycle 0% test passed!")
+
+
+
 
     # assigning duty cycle (100%)
     await send_spi_transaction(dut, 1, 0x04, 0xFF)
     await ClockCycles(dut.clk, 2000)
-    start = _bit0(dut.uo_out)
-    assert start == 1, f"100%: output not high at start (got {start})"
-    await noEdge(FallingEdge(dut.uo_out[0]), timeOut, "(100%) duty")
+
+    # start = _bit0(dut.uo_out)
+    # assert start == 1, f"100%: output not high at start (got {start})"
+    # await noEdge(FallingEdge(dut.uo_out[0]), timeOut, "(100%) duty")
+
+    assert _bit0(dut.uo_out) == 1, "(100%): output not high at start"
+    for _ in range(70000):
+        await ClockCycles(dut.clk, 1)
+        assert _bit0(dut.uo_out) == 1, "(100%) duty: output changed unexpectedly"
     dut._log.info("Duty Cycle 100% test passed!")
 
 
