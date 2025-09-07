@@ -1,3 +1,5 @@
+`default_nettype none   
+
 module spi_peripheral (
 //inputs
     input wire clk,
