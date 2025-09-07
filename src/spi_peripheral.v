@@ -25,7 +25,7 @@ reg [15:0] serialData;
 reg [4:0] clkCount;
 
 always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin \\reset at active low
+    if (!rst_n) begin //reset at active low
 
         SCLK_sync <= 2'b00;
         nCS_sync <= 2'b11;
