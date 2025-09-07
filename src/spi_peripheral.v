@@ -78,31 +78,31 @@ always @(posedge clk or negedge rst_n) begin
                 serialData <= {serialData[14:0], COPI_sync[1]};
                 clkCount <= clkCount + 1'b1;
             end 
-        end
-
-        else if (dataRead & serialData[15]) begin  //+checking write_only bit in a go ~!
+            if (clkCount == 4'd15) begin  //+checking write_only bit in a go ~!
             case (serialData[14:8]) //address casing
                 7'h00: begin 
-                    en_reg_out_7_0 <= serialData[7:0]; 
+                    en_reg_out_7_0 <= {serialData[7:1], COPI_sync[1]}; 
                 end
                 7'h01: begin 
-                    en_reg_out_15_8 <= serialData[7:0];
+                    en_reg_out_15_8 <= {serialData[7:1], COPI_sync[1]};
                 end
                 7'h02: begin 
-                    en_reg_pwm_7_0 <= serialData[7:0];
+                    en_reg_pwm_7_0 <= {serialData[7:1], COPI_sync[1]};
                 end
                 7'h03: begin 
-                    en_reg_pwm_15_8 <= serialData[7:0];
+                    en_reg_pwm_15_8 <= {serialData[7:1], COPI_sync[1]};
                 end
                 7'h04: begin 
-                    pwm_duty_cycle <= serialData[7:0];
+                    pwm_duty_cycle <= {serialData[7:1], COPI_sync[1]};
                 end
                 default: 
                 ;
             endcase
-
-            clkCount <= 5'b0;
-            serialData <= 16'b0;
+            dataReady <= 1'b0;
+            dataRead <= 1'b1;
+            clkCount <= 0;
+            serialData <= 0;
+            end
         end
     end
 end 
