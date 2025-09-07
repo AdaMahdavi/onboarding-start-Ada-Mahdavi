@@ -20,21 +20,17 @@ reg [1:0] SCLK_sync;
 reg [1:0] nCS_sync;
 reg [1:0] COPI_sync;
 
-
 reg [15:0] serialData;
-reg [3:0] clkCount;
+reg [4:0] clkCount;
 
-//k change of plans
-//process flags
-reg dataRead;
-reg dataReady;
 
 always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin //reset at active low
-
+    if (!rst_n) begin
+        
         SCLK_sync <= 2'b00;
-        nCS_sync <= 2'b11;
+        nCS_sync <= 2'b11;  //nCS is 1 at idle
         COPI_sync <= 2'b00;
+
 
         en_reg_out_7_0 <= 8'b0;
         en_reg_out_15_8 <= 8'b0;
@@ -43,68 +39,51 @@ always @(posedge clk or negedge rst_n) begin
         pwm_duty_cycle <= 8'b0;
 
         serialData <= 16'b0;
-        clkCount <= 5'b0;
+        clkCount <= 4'b0;
 
-        dataRead <= 1'b1;
-        dataReady <= 1'b0;
-    end 
-    
+    end
+
     else begin
-
+        
         //synchonizing to avoid metastability
         SCLK_sync <= {SCLK_sync[0], SCLK};
         nCS_sync <= {nCS_sync[0], nCS};
         COPI_sync <= {COPI_sync[0], COPI};
-        
-        //active low nCS, receiving serial data
 
-        if (nCS_sync[1] & !nCS_sync[0] & dataRead) begin 
-            dataRead <= 1'b0;
-            dataReady <= 1'b1;
-        end 
-        // if (nCS_sync[1] & !nCS_sync[0]) begin 
-        //     serialData <= 16'b0; 
-        //     clkCount <= 5'b0;
-        // end 
-        else if (!nCS_sync[1] & nCS_sync[0] & !dataReady & (clkCount == 4'd15)) begin 
-            dataRead <= 1'b1;
-            dataReady <= 1'b0;
-            clkCount <= 4'b0;
+        // nCS falling edge
+        if(!nCS_sync[0] & nCS_sync[1]) begin
             serialData <= 16'b0;
+            clkCount <= 4'b0;
         end
-        
-        if (dataReady) begin
-            if(SCLK_sync[1] & !SCLK_sync[0]) begin
+
+        //reading on sclk rising edge, nCS held low
+        else if ((!nCS_sync[1]) && (SCLK_sync[0] & !SCLK_sync[1])) begin
+            if (clkCount < 5'd16) begin
                 serialData <= {serialData[14:0], COPI_sync[1]};
                 clkCount <= clkCount + 1'b1;
-            end 
-            if (clkCount == 4'd15) begin  //+checking write_only bit in a go ~!
-            case (serialData[14:8]) //address casing
-                7'h00: begin 
-                    en_reg_out_7_0 <= {serialData[7:1], COPI_sync[1]}; 
-                end
-                7'h01: begin 
-                    en_reg_out_15_8 <= {serialData[7:1], COPI_sync[1]};
-                end
-                7'h02: begin 
-                    en_reg_pwm_7_0 <= {serialData[7:1], COPI_sync[1]};
-                end
-                7'h03: begin 
-                    en_reg_pwm_15_8 <= {serialData[7:1], COPI_sync[1]};
-                end
-                7'h04: begin 
-                    pwm_duty_cycle <= {serialData[7:1], COPI_sync[1]};
-                end
-                default: 
-                ;
-            endcase
-            dataReady <= 1'b0;
-            dataRead <= 1'b1;
-            clkCount <= 0;
-            serialData <= 0;
             end
         end
+         
+
+        //at 16th tick, nCS rising edge and assuming first bit is write:
+        if ((clkCount == 5'd16) && (nCS_sync[0] & !nCS_sync[1]) && serialData[15]) begin //only corresponding to write input
+            case (serialData[14:8])
+                7'h00 : 
+                    en_reg_out_7_0 <= serialData[7:0];
+                7'h01 : 
+                    en_reg_out_15_8 <= serialData[7:0];
+                7'h02 : 
+                    en_reg_pwm_7_0 <= serialData[7:0];
+                7'h03 : 
+                    en_reg_pwm_15_8 <= serialData[7:0];
+                7'h04 : 
+                    pwm_duty_cycle <= serialData[7:0];
+                default: ;
+            endcase
+        end
     end
-end 
+end
+
+
 
 endmodule
