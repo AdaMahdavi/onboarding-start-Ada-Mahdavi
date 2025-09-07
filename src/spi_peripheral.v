@@ -81,6 +81,9 @@ always @(posedge clk or negedge rst_n) begin
                 default: 
                 ;
             endcase
+            
+            clkCount <= 5'd0;
+            serialData <= 16'd0;
         end
     end
 end 
