@@ -74,7 +74,7 @@ always @(posedge clk or negedge rst_n) begin
         end
         
         if (dataReady) begin
-         (SCLK_sync[1] & !SCLK_sync[0]) begin
+            if(SCLK_sync[1] & !SCLK_sync[0]) begin
                 serialData <= {serialData[14:0], COPI_sync[1]};
                 clkCount <= clkCount + 1'b1;
             end 
