@@ -39,7 +39,7 @@ always @(posedge clk or negedge rst_n) begin
         pwm_duty_cycle <= 8'b0;
 
         serialData <= 16'b0;
-        clkCount <= 4'b0;
+        clkCount <= 5'b0;
 
     end
 
@@ -53,7 +53,7 @@ always @(posedge clk or negedge rst_n) begin
         // nCS falling edge
         if(!nCS_sync[0] & nCS_sync[1]) begin
             serialData <= 16'b0;
-            clkCount <= 4'b0;
+            clkCount <= 5'b0;
         end
 
         //reading on sclk rising edge, nCS held low
